@@ -1,0 +1,46 @@
+# Korean ASR RTX4060 Configuration
+
+# Model settings
+model:
+  name: "kresnik/wav2vec2-large-xlsr-korean"
+  torch_dtype: "float16"  # float16, float32
+  device: "cuda"
+  low_cpu_mem_usage: true
+
+# Audio processing
+audio:
+  sample_rate: 16000
+  max_chunk_length: 30  # seconds
+  min_chunk_length: 1   # seconds
+  overlap: 0.1          # overlap between chunks (10%)
+  
+# Memory optimization
+memory:
+  clear_cache_after_chunk: true
+  monitor_memory: true
+  max_vram_usage: 7.5   # GB (留 0.5GB for system)
+  
+# Performance settings
+performance:
+  batch_size: 1
+  num_workers: 1
+  pin_memory: true
+  
+# Output settings
+output:
+  save_results: true
+  output_dir: "data/outputs"
+  timestamp_format: "%Y%m%d_%H%M%S"
+  
+# Logging
+logging:
+  level: "INFO"  # DEBUG, INFO, WARNING, ERROR
+  file: "logs/asr.log"
+  console: true
+  
+# Paths
+paths:
+  data_dir: "data"
+  sample_audio_dir: "data/sample_audio"
+  outputs_dir: "data/outputs"
+  temp_dir: "data/temp"
