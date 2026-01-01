@@ -17,10 +17,6 @@ RTX 4060 8GB에 최적화된 한국어 음성 인식 시스템
 ### 1. 설치
 
 ```bash
-# 저장소 클론
-git clone <repository-url>
-cd korean_asr_rtx4060
-
 # 가상환경 생성
 python -m venv venv
 source venv/bin/activate  # Linux/Mac
@@ -241,3 +237,4 @@ event = vad.process(audio_chunk, sr)
 if event == 'speech_start':
     print("음성 시작")
 ```
+---
