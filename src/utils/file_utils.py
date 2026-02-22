@@ -116,11 +116,13 @@ class ResultManager:
         output_path = self.output_dir / filename
         
         srt_content = []
-        
-        for i, chunk in enumerate(chunks):
+        srt_index = 0
+
+        for chunk in chunks:
             if chunk["text"].strip() and not chunk["text"].startswith("[ERROR"):
-                # SRT 번호
-                srt_content.append(str(i + 1))
+                # SRT 번호 (연속적으로 부여)
+                srt_index += 1
+                srt_content.append(str(srt_index))
                 
                 # 시간 포맷 (HH:MM:SS,mmm --> HH:MM:SS,mmm)
                 start_time = self._format_srt_time(chunk["start_time"])

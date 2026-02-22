@@ -152,6 +152,10 @@ class MemoryManager:
 
         logger.info("Emergency cleanup completed")
 
+    def clear_history(self) -> None:
+        """메모리 사용 기록 초기화"""
+        self._memory_history.clear()
+
     def get_memory_stats(self) -> Dict:
         """메모리 사용 통계 반환"""
         if not self._memory_history:

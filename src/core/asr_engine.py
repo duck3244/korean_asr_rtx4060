@@ -132,7 +132,7 @@ class KoreanASREngine:
                     self.memory_manager.clear_cache()
 
                 # Automatic Mixed Precision 사용
-                with torch.cuda.amp.autocast():
+                with torch.amp.autocast('cuda'):
                     logits = self.model(input_values).logits
 
             # 디코딩
@@ -161,7 +161,7 @@ class KoreanASREngine:
                 raise MemoryError("GPU memory exhausted")
             else:
                 self.stats["errors"] += 1
-                raise e
+                raise
         except Exception as e:
             self.stats["errors"] += 1
             logger.error(f"Transcription error: {e}")
@@ -270,7 +270,7 @@ class KoreanASREngine:
             "chunks_processed": 0,
             "errors": 0
         }
-        self.memory_manager._memory_history.clear()
+        self.memory_manager.clear_history()
 
     def is_ready(self) -> bool:
         """엔진 준비 상태 확인"""

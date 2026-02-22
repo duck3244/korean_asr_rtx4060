@@ -60,10 +60,7 @@ class AudioProcessor:
             raise
     
     def normalize_audio(self, audio: np.ndarray) -> np.ndarray:
-        """오디오 정규화"""
-        # 무음 제거
-        audio = self.remove_silence(audio)
-        
+        """오디오 정규화 (타이밍 보존을 위해 silence trim은 수행하지 않음)"""
         # RMS 정규화
         if np.max(np.abs(audio)) > 0:
             rms = np.sqrt(np.mean(audio**2))
@@ -101,8 +98,11 @@ class AudioProcessor:
     
     def create_chunks(self, audio: np.ndarray, sr: int) -> List[Dict]:
         """오디오를 청크로 분할"""
+        if len(audio) == 0:
+            return []
+
         duration = len(audio) / sr
-        
+
         if duration <= self.max_chunk_length:
             # 단일 청크로 처리
             return [{
@@ -115,17 +115,18 @@ class AudioProcessor:
         # 다중 청크로 분할
         chunks = []
         chunk_samples = int(self.max_chunk_length * sr)
-        overlap_samples = int(self.overlap * sr)
-        
+        overlap_samples = int(self.overlap * chunk_samples)
+        step_samples = chunk_samples - overlap_samples
+
         start_idx = 0
         chunk_idx = 0
-        
+
         while start_idx < len(audio):
             end_idx = min(start_idx + chunk_samples, len(audio))
-            
+
             # 청크 추출
             chunk_audio = audio[start_idx:end_idx]
-            
+
             # 최소 길이 확인
             if len(chunk_audio) / sr >= self.min_chunk_length:
                 chunks.append({
@@ -135,13 +136,9 @@ class AudioProcessor:
                     "index": chunk_idx
                 })
                 chunk_idx += 1
-            
+
             # 다음 청크 시작점 계산 (오버랩 고려)
-            start_idx = end_idx - overlap_samples
-            
-            # 무한 루프 방지
-            if start_idx >= end_idx - overlap_samples:
-                break
+            start_idx += step_samples
         
         logger.info(f"Created {len(chunks)} chunks from {duration:.1f}s audio")
         return chunks
@@ -227,7 +224,7 @@ class AudioProcessor:
         try:
             spectral_centroid = librosa.feature.spectral_centroid(y=audio, sr=sr)
             info["spectral_centroid"] = float(np.mean(spectral_centroid))
-        except:
+        except Exception:
             info["spectral_centroid"] = 0.0
         
         return info
@@ -243,7 +240,7 @@ class AudioValidator:
     def validate_audio(self, audio: np.ndarray, sr: int) -> Dict:
         """오디오 유효성 검증"""
         issues = []
-        warnings = []
+        audio_warnings = []
         
         duration = len(audio) / sr
         
@@ -251,32 +248,32 @@ class AudioValidator:
         if duration < self.min_duration:
             issues.append(f"Audio too short: {duration:.2f}s < {self.min_duration}s")
         elif duration > self.max_duration:
-            warnings.append(f"Audio very long: {duration:.2f}s > {self.max_duration}s")
-        
+            audio_warnings.append(f"Audio very long: {duration:.2f}s > {self.max_duration}s")
+
         # 신호 품질 검증
         rms = np.sqrt(np.mean(audio**2))
         peak = np.max(np.abs(audio))
-        
+
         if rms < 1e-6:
             issues.append("Audio signal too weak (near silence)")
         elif rms > 0.5:
-            warnings.append("Audio signal very loud (possible distortion)")
-        
+            audio_warnings.append("Audio signal very loud (possible distortion)")
+
         if peak >= 1.0:
-            warnings.append("Audio clipping detected")
-        
+            audio_warnings.append("Audio clipping detected")
+
         # 샘플레이트 검증
         if sr != 16000:
-            warnings.append(f"Non-standard sample rate: {sr}Hz (expected 16000Hz)")
-        
+            audio_warnings.append(f"Non-standard sample rate: {sr}Hz (expected 16000Hz)")
+
         # NaN/Inf 검증
         if np.any(np.isnan(audio)) or np.any(np.isinf(audio)):
             issues.append("Audio contains NaN or Inf values")
-        
+
         return {
             "is_valid": len(issues) == 0,
             "issues": issues,
-            "warnings": warnings,
+            "warnings": audio_warnings,
             "stats": {
                 "duration": duration,
                 "rms": rms,

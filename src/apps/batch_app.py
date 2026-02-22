@@ -219,7 +219,7 @@ class BatchProcessor:
             if audio_path != job.file_path:
                 try:
                     Path(audio_path).unlink()
-                except:
+                except OSError:
                     pass
             
             # 작업 완료
