@@ -8,7 +8,7 @@ import numpy as np
 from transformers import Wav2Vec2ForCTC, Wav2Vec2Processor
 import time
 import logging
-from typing import List, Optional, Tuple, Dict
+from typing import List, Optional, Tuple, Dict, Callable
 from pathlib import Path
 
 from .memory_manager import MemoryManager
@@ -131,8 +131,8 @@ class KoreanASREngine:
                 if self.memory_manager.is_memory_pressure():
                     self.memory_manager.clear_cache()
 
-                # Automatic Mixed Precision 사용
-                with torch.amp.autocast('cuda'):
+                # Automatic Mixed Precision 사용 (CPU/CUDA 모두 지원)
+                with torch.amp.autocast(self.device.type):
                     logits = self.model(input_values).logits
 
             # 디코딩
@@ -167,8 +167,13 @@ class KoreanASREngine:
             logger.error(f"Transcription error: {e}")
             raise
 
-    def transcribe_audio(self, audio: np.ndarray, sr: int = 16000) -> Dict:
-        """전체 오디오 전사"""
+    def transcribe_audio(self, audio: np.ndarray, sr: int = 16000,
+                         progress_callback: Optional[Callable[[int, int], None]] = None) -> Dict:
+        """전체 오디오 전사
+
+        progress_callback: 각 청크 처리 후 (완료_청크수, 전체_청크수)로 호출된다.
+                           비동기 작업의 진행률 표시에 사용한다.
+        """
         logger.info(f"Transcribing audio: {len(audio)/sr:.1f}s, {sr}Hz")
 
         # 오디오 전처리 및 청킹
@@ -216,6 +221,13 @@ class KoreanASREngine:
                     "duration": chunk["end_time"] - chunk["start_time"]
                 })
 
+            # 진행률 보고 (청크 실패 여부와 무관하게 진행)
+            if progress_callback is not None:
+                try:
+                    progress_callback(i + 1, len(chunks))
+                except Exception as cb_err:
+                    logger.warning(f"progress_callback failed: {cb_err}")
+
         # 결과 조합
         final_text = " ".join([chunk["text"] for chunk in chunk_results
                               if not chunk["text"].startswith("[ERROR")])
@@ -226,7 +238,8 @@ class KoreanASREngine:
             "stats": self.get_performance_stats()
         }
 
-    def transcribe_file(self, file_path: str) -> Dict:
+    def transcribe_file(self, file_path: str,
+                        progress_callback: Optional[Callable[[int, int], None]] = None) -> Dict:
         """오디오 파일 전사"""
         file_path = Path(file_path)
 
@@ -239,7 +252,7 @@ class KoreanASREngine:
         audio, sr = self.audio_processor.load_audio(str(file_path))
 
         # 전사 실행
-        result = self.transcribe_audio(audio, sr)
+        result = self.transcribe_audio(audio, sr, progress_callback=progress_callback)
         result["file_path"] = str(file_path)
         result["file_duration"] = len(audio) / sr
 
@@ -306,3 +319,6 @@ class KoreanASREngine:
             logger.info(f"Final stats: RTF={stats['real_time_factor']:.3f}, "
                        f"Chunks={stats['chunks_processed']}, "
                        f"Errors={stats['errors']}")
+
+        # 모델 언로드 및 VRAM 해제
+        self.unload_model()

@@ -12,20 +12,14 @@ audio:
   sample_rate: 16000
   max_chunk_length: 30  # seconds
   min_chunk_length: 1   # seconds
-  overlap: 0.1          # overlap between chunks (10%)
-  
+  overlap: 0.0          # 청크 간 오버랩 비율. 오버랩 구간 중복 제거 로직이 없으므로 0 권장
+
 # Memory optimization
 memory:
   clear_cache_after_chunk: true
   monitor_memory: true
-  max_vram_usage: 7.5   # GB (留 0.5GB for system)
-  
-# Performance settings
-performance:
-  batch_size: 1
-  num_workers: 1
-  pin_memory: true
-  
+  max_vram_usage: 7.5   # GB (시스템용으로 약 0.5GB 여유 확보)
+
 # Output settings
 output:
   save_results: true

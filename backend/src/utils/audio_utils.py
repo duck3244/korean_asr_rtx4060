@@ -72,30 +72,6 @@ class AudioProcessor:
         
         return audio
     
-    def remove_silence(self, audio: np.ndarray, 
-                      top_db: int = 20, 
-                      frame_length: int = 2048,
-                      hop_length: int = 512) -> np.ndarray:
-        """무음 구간 제거"""
-        try:
-            # librosa를 사용한 무음 구간 탐지 및 제거
-            audio_trimmed, _ = librosa.effects.trim(
-                audio,
-                top_db=top_db,
-                frame_length=frame_length,
-                hop_length=hop_length
-            )
-            
-            if len(audio_trimmed) == 0:
-                logger.warning("Audio completely trimmed. Using original.")
-                return audio
-            
-            return audio_trimmed
-            
-        except Exception as e:
-            logger.warning(f"Silence removal failed: {e}. Using original audio.")
-            return audio
-    
     def create_chunks(self, audio: np.ndarray, sr: int) -> List[Dict]:
         """오디오를 청크로 분할"""
         if len(audio) == 0:
@@ -143,53 +119,7 @@ class AudioProcessor:
         logger.info(f"Created {len(chunks)} chunks from {duration:.1f}s audio")
         return chunks
     
-    def apply_effects(self, audio: np.ndarray, sr: int) -> np.ndarray:
-        """오디오 효과 적용 (선택사항)"""
-        try:
-            # 노이즈 리덕션 (간단한 버전)
-            audio = self.simple_noise_reduction(audio)
-            
-            # 음성 강화
-            audio = self.enhance_speech(audio, sr)
-            
-            return audio
-            
-        except Exception as e:
-            logger.warning(f"Audio effects failed: {e}. Using original audio.")
-            return audio
-    
-    def simple_noise_reduction(self, audio: np.ndarray, 
-                              noise_factor: float = 0.005) -> np.ndarray:
-        """간단한 노이즈 리덕션"""
-        # 저주파 노이즈 제거
-        audio_filtered = audio.copy()
-        
-        # 간단한 고역 통과 필터
-        if len(audio) > 1:
-            audio_filtered[1:] = audio_filtered[1:] - noise_factor * audio_filtered[:-1]
-        
-        return audio_filtered
-    
-    def enhance_speech(self, audio: np.ndarray, sr: int) -> np.ndarray:
-        """음성 강화 (간단한 버전)"""
-        try:
-            # 음성 주파수 대역 강조 (300-3400 Hz)
-            audio_enhanced = audio.copy()
-            
-            # 간단한 주파수 필터링 효과
-            rms = np.sqrt(np.mean(audio**2))
-            if rms > 0:
-                # 동적 범위 압축
-                compressed = np.sign(audio) * np.power(np.abs(audio), 0.8)
-                audio_enhanced = compressed * (rms / np.sqrt(np.mean(compressed**2)))
-            
-            return audio_enhanced
-            
-        except Exception as e:
-            logger.warning(f"Speech enhancement failed: {e}")
-            return audio
-    
-    def save_audio(self, audio: np.ndarray, output_path: str, 
+    def save_audio(self, audio: np.ndarray, output_path: str,
                    sr: int = None) -> None:
         """오디오 파일 저장"""
         if sr is None:

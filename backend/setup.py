@@ -5,11 +5,14 @@ Setup script for Korean ASR RTX 4060 project
 from setuptools import setup, find_packages
 from pathlib import Path
 
-# 프로젝트 루트 디렉토리
+# 프로젝트 루트 디렉토리 (backend/)
 ROOT_DIR = Path(__file__).parent
 
-# README.md 읽기
-long_description = (ROOT_DIR / "README.md").read_text(encoding="utf-8")
+# README.md 읽기 (backend/ 또는 저장소 루트에서 탐색)
+_readme = ROOT_DIR / "README.md"
+if not _readme.exists():
+    _readme = ROOT_DIR.parent / "README.md"
+long_description = _readme.read_text(encoding="utf-8") if _readme.exists() else ""
 
 # requirements.txt 읽기
 def read_requirements():
@@ -22,8 +25,8 @@ def read_requirements():
 setup(
     name="korean-asr-rtx4060",
     version="1.0.0",
-    author="Your Name",
-    author_email="your.email@example.com",
+    author="duck",
+    author_email="gukgyeon@gmail.com",
     description="Korean Speech Recognition optimized for RTX 4060 8GB",
     long_description=long_description,
     long_description_content_type="text/markdown",

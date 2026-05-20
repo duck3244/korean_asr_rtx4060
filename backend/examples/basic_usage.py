@@ -84,17 +84,12 @@ audio:
   sample_rate: 16000
   max_chunk_length: 30
   min_chunk_length: 1
-  overlap: 0.1
+  overlap: 0.0
 
 memory:
   clear_cache_after_chunk: true
   monitor_memory: true
   max_vram_usage: 7.5
-
-performance:
-  batch_size: 1
-  num_workers: 1
-  pin_memory: true
 
 output:
   save_results: true

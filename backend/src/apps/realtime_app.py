@@ -46,7 +46,10 @@ class RealTimeASR:
         
         # 상태 변수
         self.is_running = False
-        self.audio_buffer = queue.Queue()
+        # maxsize 를 지정해야 _audio_callback 의 가득 참 처리(오래된 데이터 폐기)가 동작한다.
+        # 약 4배 버퍼 여유: buffer_duration 동안 쌓이는 콜백 블록 수 기준
+        max_blocks = int(self.buffer_duration * self.sample_rate / self.chunk_size) * 4
+        self.audio_buffer = queue.Queue(maxsize=max_blocks)
         self.result_callback = None
         
         # 스레드

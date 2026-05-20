@@ -13,7 +13,6 @@ import csv
 from datetime import datetime
 from typing import List, Dict, Optional, Callable
 import logging
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 
 # 프로젝트 루트를 Python 경로에 추가
@@ -325,64 +324,16 @@ class BatchProcessor:
         return self._generate_summary()
     
     def process_parallel(self, output_format: str = "txt") -> Dict:
-        """병렬 처리 (실험적 - 메모리 사용량 주의)"""
-        logger.warning("Parallel processing is experimental on RTX 4060. Monitor memory usage.")
-        
-        if not self.jobs:
-            return {"error": "No jobs to process"}
-        
-        self.is_running = True
-        self.stats["start_time"] = time.time()
-        
-        try:
-            # 각 워커별로 별도의 ASR 엔진 필요 (메모리 부족 위험)
-            with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
-                # ASR 엔진 초기화 (워커당 하나씩)
-                asr_engines = []
-                for _ in range(self.max_workers):
-                    engine = KoreanASREngine(self.config)
-                    engine.load_model()
-                    asr_engines.append(engine)
-                
-                # 작업 제출
-                future_to_job = {}
-                for i, job in enumerate(self.jobs):
-                    engine = asr_engines[i % len(asr_engines)]
-                    future = executor.submit(self._process_single_job, job, engine)
-                    future_to_job[future] = job
-                
-                # 결과 수집
-                for future in as_completed(future_to_job):
-                    if not self.is_running:
-                        break
-                    
-                    job = future_to_job[future]
-                    try:
-                        processed_job = future.result()
-                        
-                        if processed_job.status == "completed":
-                            self.completed_jobs.append(processed_job)
-                        else:
-                            self.failed_jobs.append(processed_job)
-                        
-                        self._update_progress()
-                        
-                    except Exception as e:
-                        logger.error(f"Job failed: {job.file_path} - {e}")
-                
-                # 엔진 정리
-                for engine in asr_engines:
-                    engine.unload_model()
-        
-        except Exception as e:
-            logger.error(f"Parallel batch processing failed: {e}")
-            return {"error": str(e)}
-        
-        finally:
-            self.is_running = False
-            self.stats["end_time"] = time.time()
-        
-        return self._generate_summary()
+        """병렬 처리 (RTX 4060 8GB 단일 GPU에서는 비권장).
+
+        단일 GPU에서 여러 스레드가 CUDA 컨텍스트와 엔진 상태(self.stats 등)를
+        공유하면 경쟁 조건과 VRAM 부족이 발생한다. 안전하게 순차 처리로 위임한다.
+        """
+        logger.warning(
+            "Parallel processing is not safe on a single 8GB GPU "
+            "(shared CUDA context / engine state). Falling back to sequential processing."
+        )
+        return self.process_sequential(output_format)
     
     def _generate_summary(self) -> Dict:
         """처리 결과 요약 생성"""

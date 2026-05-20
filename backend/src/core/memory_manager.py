@@ -7,6 +7,7 @@ import torch
 import gc
 import psutil
 import time
+from collections import deque
 from typing import Dict, Optional
 import logging
 
@@ -19,7 +20,8 @@ class MemoryManager:
     def __init__(self, max_vram_gb: float = 7.5):
         self.max_vram_gb = max_vram_gb
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self._memory_history = []
+        # 장시간 실시간 세션에서 무한 증가하지 않도록 최근 기록만 유지
+        self._memory_history = deque(maxlen=1000)
 
         if torch.cuda.is_available():
             self.total_vram = torch.cuda.get_device_properties(0).total_memory / (1024**3)
@@ -103,13 +105,12 @@ class MemoryManager:
                 logger.info(f"Freed {freed:.2f}GB of GPU memory")
 
     def is_memory_pressure(self, threshold: float = 0.85) -> bool:
-        """메모리 압박 상황 감지"""
+        """메모리 압박 상황 감지 (설정된 max_vram_gb 예산 기준)"""
         if not torch.cuda.is_available():
             return False
 
-        usage_ratio = (torch.cuda.memory_allocated() /
-                      torch.cuda.get_device_properties(0).total_memory)
-        return usage_ratio > threshold
+        allocated_gb = torch.cuda.memory_allocated() / (1024**3)
+        return allocated_gb > self.max_vram_gb * threshold
 
     def optimize_for_inference(self):
         """추론용 메모리 최적화"""
